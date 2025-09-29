@@ -11,12 +11,12 @@
     "@types/jsonwebtoken": "^9.0.7",
     "jsonwebtoken": "^9.0.2",
     "ws": "^8.18.0",
-    "@repo/db": "workspace:*"
+    "@repo/db": "file:../../packages/db"
   },
   "devDependencies": {
-    "@repo/typescript-config": "workspace:*",
+    "@repo/typescript-config": "file:../../packages/typescript-config",
     "@types/ws": "^8.5.13",
-    "@repo/backend-common": "workspace:*"
+    "@repo/backend-common": "file:../../packages/backend-common"
   },
   "keywords": [],
   "author": "",
