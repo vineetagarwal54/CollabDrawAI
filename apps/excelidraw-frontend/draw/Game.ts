@@ -1,5 +1,6 @@
-import { Tool } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
+
+type Tool = "circle" | "rect" | "pencil" | "erase";
 
 type Shape = {
     type: "rect";
@@ -53,7 +54,7 @@ export class Game {
         this.canvas.removeEventListener("mousemove", this.mouseMoveHandler)
     }
 
-    setTool(tool: "circle" | "pencil" | "rect") {
+    setTool(tool: Tool) {
         this.selectedTool = tool;
     }
 
@@ -68,8 +69,21 @@ export class Game {
             const message = JSON.parse(event.data);
 
             if (message.type == "chat") {
-                const parsedShape = JSON.parse(message.message)
-                this.existingShapes.push(parsedShape.shape)
+                try {
+                    const payload = JSON.parse(message.message);
+                    if (payload?.action === "delete" && typeof payload?.index === "number") {
+                        if (payload.index >= 0 && payload.index < this.existingShapes.length) {
+                            this.existingShapes.splice(payload.index, 1);
+                        }
+                    } else if (payload?.action === "add" && payload?.shape) {
+                        this.existingShapes.push(payload.shape);
+                    } else if (payload?.shape) {
+                        // legacy format
+                        this.existingShapes.push(payload.shape);
+                    }
+                } catch {
+                    // ignore malformed payloads
+                }
                 this.clearCanvas();
             }
         }
@@ -80,7 +94,8 @@ export class Game {
         this.ctx.fillStyle = "rgba(0, 0, 0)"
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        this.existingShapes.map((shape) => {
+        this.existingShapes.forEach((shape) => {
+            if (!shape) return;
             if (shape.type === "rect") {
                 this.ctx.strokeStyle = "rgba(255, 255, 255)"
                 this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
@@ -94,19 +109,31 @@ export class Game {
         })
     }
 
-    mouseDownHandler = (e) => {
+    mouseDownHandler = (e: MouseEvent) => {
         this.clicked = true
         this.startX = e.clientX
         this.startY = e.clientY
     }
-    mouseUpHandler = (e) => {
+    mouseUpHandler = (e: MouseEvent) => {
         this.clicked = false
         const width = e.clientX - this.startX;
         const height = e.clientY - this.startY;
 
         const selectedTool = this.selectedTool;
         let shape: Shape | null = null;
-        if (selectedTool === "rect") {
+        if (selectedTool === "erase") {
+            // hit-test: prefer last drawn first (top-most)
+            const hitIndex = this.hitTest(e.clientX, e.clientY);
+            if (hitIndex !== -1) {
+                // Do NOT mutate locally to avoid double-delete when our own WS message arrives
+                this.socket.send(JSON.stringify({
+                    type: "chat",
+                    message: JSON.stringify({ action: "delete", index: hitIndex }),
+                    roomId: this.roomId
+                }))
+            }
+            return;
+        } else if (selectedTool === "rect") {
 
             shape = {
                 type: "rect",
@@ -133,13 +160,11 @@ export class Game {
 
         this.socket.send(JSON.stringify({
             type: "chat",
-            message: JSON.stringify({
-                shape
-            }),
+            message: JSON.stringify({ action: "add", shape }),
             roomId: this.roomId
         }))
     }
-    mouseMoveHandler = (e) => {
+    mouseMoveHandler = (e: MouseEvent) => {
         if (this.clicked) {
             const width = e.clientX - this.startX;
             const height = e.clientY - this.startY;
@@ -168,5 +193,22 @@ export class Game {
 
         this.canvas.addEventListener("mousemove", this.mouseMoveHandler)    
 
+    }
+
+    private hitTest(x: number, y: number): number {
+        // iterate from end for top-most hit
+        for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+            const s = this.existingShapes[i];
+            if (s.type === "rect") {
+                const within = x >= s.x && x <= s.x + s.width && y >= s.y && y <= s.y + s.height;
+                if (within) return i;
+            } else if (s.type === "circle") {
+                const dx = x - s.centerX;
+                const dy = y - s.centerY;
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 <= s.radius * s.radius) return i;
+            }
+        }
+        return -1;
     }
 }

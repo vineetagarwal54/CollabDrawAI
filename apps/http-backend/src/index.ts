@@ -103,11 +103,15 @@ app.post("/room", middleware, async (req, res) => {
 
 app.get("/chats/:roomId", async (req, res) => {
     try {
-        const roomId = Number(req.params.roomId);
-        console.log(req.params.roomId);
+        const roomIdParam = req.params.roomId;
+        const roomIdNum = Number(roomIdParam);
+        if (!roomIdParam || Number.isNaN(roomIdNum)) {
+            res.status(400).json({ message: "Invalid room id", messages: [] });
+            return;
+        }
         const messages = await prismaClient.chat.findMany({
             where: {
-                roomId: roomId
+                roomId: roomIdNum
             },
             orderBy: {
                 id: "desc"
@@ -120,7 +124,7 @@ app.get("/chats/:roomId", async (req, res) => {
         })
     } catch(e) {
         console.log(e);
-        res.json({
+        res.status(500).json({
             messages: []
         })
     }
@@ -138,6 +142,26 @@ app.get("/room/:slug", async (req, res) => {
     res.json({
         room
     })
+})
+
+app.get("/room/id/:id", async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (Number.isNaN(id)) {
+            res.status(400).json({ message: "Invalid room id" })
+            return;
+        }
+        const room = await prismaClient.room.findFirst({
+            where: { id }
+        });
+        if (!room) {
+            res.status(404).json({ message: "Room not found" });
+            return;
+        }
+        res.json({ room });
+    } catch (e) {
+        res.status(500).json({ message: "Something went wrong" });
+    }
 })
 
 app.listen(3001);
