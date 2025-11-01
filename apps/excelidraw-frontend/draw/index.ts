@@ -14,10 +14,11 @@ type Shape = {
     radius: number;
 } | {
     type: "pencil";
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
+    // Pencil paths are stored as arrays of points for smooth drawing
+    points: Array<{x: number, y: number}>;
+    // Optional styling properties for future enhancement
+    strokeWidth?: number;
+    strokeColor?: string;
 }
 
 export async function initDraw(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
@@ -131,8 +132,61 @@ function clearCanvas(existingShapes: Shape[], canvas: HTMLCanvasElement, ctx: Ca
             ctx.arc(shape.centerX, shape.centerY, shape.radius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.closePath();                
+        } else if (shape.type === "pencil") {
+            // Render pencil paths as smooth curves
+            drawPencilPath(shape.points, ctx, false, shape.strokeWidth, shape.strokeColor);
         }
     })
+}
+
+/**
+ * Draws a pencil path using quadratic curves for smooth appearance
+ * @param points Array of points defining the path
+ * @param ctx Canvas rendering context
+ * @param isPreview Whether this is a preview (real-time drawing) or final render
+ * @param strokeWidth Optional stroke width (defaults to 2)
+ * @param strokeColor Optional stroke color (defaults to white)
+ */
+function drawPencilPath(
+    points: Array<{x: number, y: number}>, 
+    ctx: CanvasRenderingContext2D, 
+    isPreview: boolean = false,
+    strokeWidth?: number,
+    strokeColor?: string
+) {
+    if (points.length < 2) return;
+
+    // Set stroke properties
+    ctx.strokeStyle = strokeColor || "rgba(255, 255, 255, 1)";
+    ctx.lineWidth = strokeWidth || 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Start drawing the path
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    // For smooth curves, use quadratic curves between points
+    // This creates the hand-drawn aesthetic similar to Excalidraw
+    for (let i = 1; i < points.length; i++) {
+        const currentPoint = points[i];
+        const previousPoint = points[i - 1];
+        
+        if (i === 1) {
+            // First segment - just draw a line
+            ctx.lineTo(currentPoint.x, currentPoint.y);
+        } else {
+            // Use quadratic curves for smoothness
+            const controlPoint = {
+                x: (previousPoint.x + currentPoint.x) / 2,
+                y: (previousPoint.y + currentPoint.y) / 2
+            };
+            ctx.quadraticCurveTo(previousPoint.x, previousPoint.y, controlPoint.x, controlPoint.y);
+        }
+    }
+
+    ctx.stroke();
+    ctx.closePath();
 }
 
 async function getExistingShapes(roomId: string) {

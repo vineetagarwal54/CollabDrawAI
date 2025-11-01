@@ -164,4 +164,6 @@ app.get("/room/id/:id", async (req, res) => {
     }
 })
 
-app.listen(3001);
+app.listen(3003, () => {
+    console.log("HTTP Backend server running on port 3003");
+});

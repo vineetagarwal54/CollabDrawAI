@@ -38,9 +38,17 @@ export function RoomCanvas({roomId}: {roomId: string}) {
     }, [roomId, router])
    
     if (!socket) {
-        return <div>
-            Connecting to server....
-        </div>
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+                <div className="glass-effect bg-white/80 backdrop-blur-xl rounded-2xl p-8 shadow-xl border border-white/20 text-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <div className="spinner"></div>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Connecting to server...</h3>
+                    <p className="text-gray-600">Setting up your collaborative workspace</p>
+                </div>
+            </div>
+        );
     }
 
     return <div>
