@@ -42,43 +42,39 @@ export function Canvas({
         }
     }, []);
 
-    // Handle WebSocket messages
+    // Handle WebSocket presence + connection state. Drawing messages are
+    // handled inside Game via socket.onmessage; this listener coexists with it.
     useEffect(() => {
         if (!socket) return;
 
         const handleMessage = (event: MessageEvent) => {
             try {
                 const data = JSON.parse(event.data);
-                
                 if (data.type === "user_count") {
                     setUserCount(data.count);
-                }
-                
-                if (data.type === "drawing") {
-                    // Handle drawing updates from other users
-                    // TODO: Implement remote drawing handling in Game class
-                    console.log("Received drawing data from another user:", data);
                 }
             } catch (error) {
                 console.error("Error parsing WebSocket message:", error);
             }
         };
+        const handleOpen = () => setIsConnected(true);
+        const handleClose = () => setIsConnected(false);
+        const handleError = () => setIsConnected(false);
 
         socket.addEventListener('message', handleMessage);
-        
-        // Set connected state
-        if (socket.readyState === WebSocket.OPEN) {
-            setIsConnected(true);
-        }
+        socket.addEventListener('open', handleOpen);
+        socket.addEventListener('close', handleClose);
+        socket.addEventListener('error', handleError);
 
-        socket.addEventListener('open', () => setIsConnected(true));
-        socket.addEventListener('close', () => setIsConnected(false));
-        socket.addEventListener('error', () => setIsConnected(false));
+        if (socket.readyState === WebSocket.OPEN) setIsConnected(true);
 
         return () => {
             socket.removeEventListener('message', handleMessage);
+            socket.removeEventListener('open', handleOpen);
+            socket.removeEventListener('close', handleClose);
+            socket.removeEventListener('error', handleError);
         };
-    }, [socket, game]);
+    }, [socket]);
 
     useEffect(() => {
         game?.setTool(selectedTool);

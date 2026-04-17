@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3002",
     "lint": "next lint"
   },
   "dependencies": {
-    "@repo/ui": "file:../../packages/ui",
+    "@repo/ui": "*",
     "axios": "^1.7.9",
     "lucide-react": "^0.473.0",
     "next": "15.1.5",

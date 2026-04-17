@@ -9,7 +9,10 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "db:generate": "npm --workspace @repo/db exec -- prisma generate",
+    "db:push": "npm --workspace @repo/db exec -- prisma db push",
+    "db:migrate": "npm --workspace @repo/db exec -- prisma migrate dev"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

@@ -1,2 +1,7 @@
+const secret = process.env.JWT_SECRET;
 
-export const JWT_SECRET = process.env.JWT_SECRET || "123123";
+if (!secret) {
+    throw new Error("JWT_SECRET is not set. Define it in your backend .env file.");
+}
+
+export const JWT_SECRET: string = secret;

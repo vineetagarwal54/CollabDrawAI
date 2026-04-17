@@ -2,213 +2,198 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
-[![Prisma](https://img.shields.io/badge/Prisma-6.2-2D3748?style=for-the-badge&logo=prisma)](https://prisma.io)
+[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=for-the-badge&logo=prisma)](https://prisma.io)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--time-green?style=for-the-badge)](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
 
-A modern, real-time collaborative whiteboard application built with cutting-edge web technologies. Create, share, and collaborate on drawings with multiple users simultaneously in a beautiful, responsive interface.
+A real-time collaborative whiteboard: create rooms, share a link, and draw together with live user count.
 
 ## 📸 Screenshots
 
 ### 🏠 Landing Page
 ![Landing Page](./screenshots/landing-page.png)
-*Modern landing page with glass morphism design*
 
-### 🔐 Authentication  
+### 🔐 Authentication
 ![Authentication](./screenshots/auth-page.png)
-*Sign in/Sign up pages with elegant form design*
 
 ### 🎨 Drawing Canvas
 ![Drawing Canvas](./screenshots/canvas-main.png)
-*Real-time collaborative drawing interface*
-
 
 ## ✨ Features
 
-- **🚀 Real-time Collaboration** - Multiple users can draw simultaneously with live updates
-- **👥 Live User Count** - See how many people are currently in your room  
-- **🏠 Room-based Sessions** - Create or join rooms via room ID or custom slug
-- **🎨 Drawing Tools** - Pencil, rectangle, circle, and eraser with customizable properties
-- **🖌️ Customizable Brush** - Adjustable brush sizes and color picker
-- **📱 Responsive Design** - Works seamlessly across desktop, tablet, and mobile
-- **✨ Glass Morphism UI** - Beautiful frosted glass effects and gradient backgrounds
-- **🔄 Real-time Updates** - Instant synchronization across all connected users
+- Real-time collaboration across multiple users in the same room
+- Live user count per room
+- Create/join rooms by name (slug) or numeric room ID
+- Drawing tools: pencil (with width), rectangle, circle, eraser
+- Color picker with 16 presets
+- JWT-based auth with bcrypt password hashing
 
 ## 🏗️ Architecture
 
-This project follows a modern monorepo structure with clear separation of concerns:
-
 ```
 ├── apps/
-│   ├── excelidraw-frontend/     # Next.js frontend application
-│   ├── http-backend/            # Express.js REST API server
-│   └── ws-backend/              # WebSocket server for real-time features
+│   ├── excelidraw-frontend/     # Next.js 15 frontend (port 3002)
+│   ├── http-backend/            # Express REST API   (port 3001)
+│   └── ws-backend/              # WebSocket server    (port 8081)
 ├── packages/
-│   ├── ui/                      # Shared UI components library
-│   ├── db/                      # Database schema and Prisma client
-│   ├── common/                  # Shared types and utilities
-│   ├── backend-common/          # Backend shared utilities
-│   └── typescript-config/       # Shared TypeScript configurations
+│   ├── db/                      # Prisma schema + client
+│   ├── common/                  # Shared Zod schemas
+│   ├── backend-common/          # Shared backend config (JWT_SECRET)
+│   ├── ui/                      # Shared UI components
+│   └── typescript-config/       # Shared tsconfig presets
 ```
+
+Backends run directly from TypeScript via [`tsx`](https://tsx.is) — no compile step required for local dev.
 
 ## 🛠️ Technology Stack
 
-**Frontend**: Next.js 15, TypeScript, Tailwind CSS, HTML5 Canvas  
-**Backend**: Express.js, WebSocket (ws), JWT Authentication  
-**Database**: PostgreSQL, Prisma ORM  
-**Tools**: Turborepo, npm workspaces, ESLint
+**Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, HTML5 Canvas
+**Backend**: Express, `ws`, JWT, bcrypt
+**Database**: PostgreSQL via Prisma
+**Monorepo**: Turborepo + npm workspaces (`tsx` for backends)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- npm package manager  
-- PostgreSQL database access
+- Node.js **≥ 18**
+- npm (bundled with Node) — **do not use pnpm/yarn; only npm is supported**
+- A reachable PostgreSQL instance
 
-### Installation
+### 1. Install dependencies
 
-1. **Clone and install**
-   ```bash
-   git clone https://github.com/vineetagarwal54/CollabDrawAI.git
-   cd CollabDrawAI
-   npm install
-   ```
+From the repo root:
 
-2. **Setup database**
-   ```bash
-   # In packages/db/.env
-   DATABASE_URL="postgresql://username:password@host:port/database"
-   
-   cd packages/db
-   npx prisma generate
-   npx prisma db push
-   ```
+```bash
+npm install
+```
 
-3. **Start development**
-   ```bash
-   npm run dev
-   ```
+This installs every workspace (frontend, backends, shared packages) at once.
 
-**Access Points:**
-- Frontend: http://localhost:3002
-- API: http://localhost:3001  
-- WebSocket: ws://localhost:8081
+### 2. Configure environment variables
+
+Copy the example env files and fill in real values.
+
+```bash
+cp packages/db/.env.example           packages/db/.env
+cp apps/http-backend/.env.example     apps/http-backend/.env
+cp apps/ws-backend/.env.example       apps/ws-backend/.env
+cp apps/excelidraw-frontend/.env.example apps/excelidraw-frontend/.env.local
+```
+
+On Windows PowerShell, use `copy` instead of `cp`.
+
+Required values:
+
+| File                                     | Variables                                             |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `packages/db/.env`                       | `DATABASE_URL`                                        |
+| `apps/http-backend/.env`                 | `PORT` (3001), `JWT_SECRET`, `DATABASE_URL`           |
+| `apps/ws-backend/.env`                   | `PORT` (8081), `JWT_SECRET`, `DATABASE_URL`           |
+| `apps/excelidraw-frontend/.env.local`    | `NEXT_PUBLIC_HTTP_BACKEND`, `NEXT_PUBLIC_WS_URL`      |
+
+> **Important:** `JWT_SECRET` must match between `http-backend` and `ws-backend`. There is no insecure fallback — missing `JWT_SECRET` will crash the backend on startup.
+
+### 3. Initialize the database
+
+```bash
+npm run db:generate   # generate Prisma client
+npm run db:push       # push schema to your Postgres database
+```
+
+### 4. Start everything in dev mode
+
+```bash
+npm run dev
+```
+
+Turbo starts all three services with file watching:
+
+- Frontend → http://localhost:3002
+- HTTP API → http://localhost:3001
+- WebSocket → ws://localhost:8081
+
+To stop: `Ctrl+C` in the terminal.
+
+### Optional: start individual services
+
+```bash
+npm run dev --workspace=excelidraw-frontend
+npm run dev --workspace=http-backend
+npm run dev --workspace=ws-backend
+```
 
 ## 📱 How to Use
 
-1. **Sign up/Sign in** - Create account or login with existing credentials
-2. **Create/Join Room** - Start new room or join existing one with room ID
-3. **Start Drawing** - Use toolbar to select tools, colors, and brush sizes
-4. **Collaborate** - See other users drawing in real-time with live user count
+1. Go to http://localhost:3002 and sign up.
+2. Sign in; you'll be redirected to the Rooms page.
+3. **Create New Room** → enter a name → redirected to `/canvas/<roomId>`.
+4. Share the room ID (or slug) with another user; they can use **Join by ID** or **Join by Link**.
+5. Draw together — the user count bottom-center reflects everyone connected.
 
 ### Drawing Tools
-- **Pencil** 🖊️: Freehand drawing with adjustable brush sizes
-- **Rectangle** ⬛: Draw perfect rectangles and squares  
-- **Circle** ⭕: Create circles and ellipses
-- **Eraser** 🧹: Remove parts of drawing
-- **Color Picker** 🎨: 16 colors + custom color selection
 
-## 🎯 Key Technical Features
+- **Pencil** — freehand, adjustable width
+- **Rectangle** — click-drag
+- **Circle** — click-drag
+- **Eraser** — click a shape to remove it
+- **Color Picker** — 16 presets
 
-### Real-time Synchronization
-- WebSocket-based bidirectional communication
-- Instant drawing updates across all connected clients
-- Live user presence indicators with automatic cleanup
-- Robust reconnection handling for network interruptions
+## 🔧 Available Scripts (root)
 
-### User Management System
-- JWT-based secure authentication
-- Protected room access control
-- Session management with automatic token refresh
-- Real-time user count updates with connection status
-
-### High-Performance Drawing Engine
-- Optimized HTML5 Canvas API implementation
-- Smooth drawing experience with 60fps performance
-- Tool state management and persistence
-- Responsive canvas that adapts to screen size changes
-
-### Modern UI Components
-- Custom button component with 5 variants and 4 sizes
-- Glass morphism effects with backdrop blur
-- Animated loading states and micro-interactions
-- Responsive design patterns for all device sizes
-
-## 🔧 Development
-
-### Available Scripts
 ```bash
-npm run dev              # Start all services in development
-npm run build            # Build for production
-npm run lint             # Lint all packages  
+npm run dev           # Run all apps in dev (Turborepo)
+npm run build         # Build all apps that have a build script (frontend)
+npm run lint          # Lint workspaces that have a lint script
+npm run format        # Prettier format
+npm run db:generate   # Prisma generate
+npm run db:push       # Prisma db push
+npm run db:migrate    # Prisma migrate dev
 ```
 
-### Project Structure
+## 🔒 Security Notes
+
+- Passwords are hashed with bcrypt (10 rounds) before storage.
+- `JWT_SECRET` must be set; the backend refuses to boot without it.
+- WebSocket connections are authenticated by a `?token=<jwt>` query parameter.
+- JWT verification is wrapped in try/catch — invalid/expired tokens return 403 instead of crashing the server.
+
+## 📄 API
+
+### Auth
 ```
-apps/excelidraw-frontend/    # Next.js frontend
-apps/http-backend/           # Express.js API
-apps/ws-backend/             # WebSocket server
-packages/db/                 # Database & Prisma
-packages/ui/                 # Shared components
-```
-npm run build            # Build all packages for production
-npm run lint             # Lint all packages with ESLint
-npm run format           # Format code with Prettier
-
-# Database
-npm run db:generate      # Generate Prisma client
-npm run db:push          # Push schema to database
-npm run db:migrate       # Run database migrations
-
-
-## 🔒 Security Measures
-
-### Authentication & Authorization
-- JWT tokens with expiration
-- Password validation (frontend and backend)
-- Protected API routes
-- Session management
-
-### Data Protection
-- Input validation and sanitization
-- SQL injection prevention (Prisma ORM)
-- XSS protection with proper escaping
-- CORS configuration for API security
-
-### WebSocket Security
-- Token-based authentication for WebSocket connections
-- Message validation and sanitization
-- Rate limiting (planned for future releases)
-- Connection cleanup and user tracking
-
-## 📄 API Documentation
-
-### Authentication
-```typescript
-POST /signup - Create account
-POST /signin - Login user
+POST /signup { username, password, name }  → { userId }
+POST /signin { username, password }        → { token }
 ```
 
-### Rooms  
-```typescript
-POST /room - Create new room (auth required)
-GET /room/:slug - Get room by slug
-GET /room/id/:id - Get room by ID
+### Rooms
+```
+POST /room       (auth required) { name } → { roomId }
+GET  /room/:slug                          → { room }
+GET  /room/id/:id                         → { room }
+GET  /chats/:roomId                       → { messages }
 ```
 
-### WebSocket Events
-```typescript
-// Join/leave room
-{ type: "join_room", roomId: string }
-{ type: "leave_room", roomId: string }
+### WebSocket (`ws://…:8081?token=<jwt>`)
+```ts
+// client → server
+{ type: "join_room", roomId }
+{ type: "leave_room", roomId }
+{ type: "chat", roomId, message }   // carries drawing add/delete payload
 
-// Drawing data
-{ type: "drawing", roomId: string, data: DrawingData }
-
-// User count updates  
-{ type: "user_count", roomId: string, count: number }
+// server → client
+{ type: "user_count", roomId, count, users }
+{ type: "chat", roomId, message, userId }
 ```
 
-## 📞 Contact & Support
+Drawing shapes are sent as `chat` messages with JSON payloads `{ action: "add" | "delete", … }` so that history can be rebuilt on reconnect via `GET /chats/:roomId`.
+
+## 🧩 Troubleshooting
+
+- **`JWT_SECRET is not set`** — create `apps/http-backend/.env` and `apps/ws-backend/.env` from the examples.
+- **`Can't reach database server`** — verify `DATABASE_URL` in every `.env` that needs it (db package, http-backend, ws-backend) and that Postgres is running.
+- **Port already in use** — override `PORT` in the relevant `.env`, and update the frontend's `NEXT_PUBLIC_HTTP_BACKEND` / `NEXT_PUBLIC_WS_URL` accordingly.
+- **Changes to shared packages don't reflect** — backends watch their own `src/`; shared packages are loaded at import time. Restart the affected backend if you edit `packages/common` or `packages/backend-common`.
+
+## 📞 Contact
 
 - **Email**: vineeta.garwal54@gmail.com

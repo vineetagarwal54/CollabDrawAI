@@ -165,7 +165,8 @@ export class Game {
             // hit-test: prefer last drawn first (top-most)
             const hitIndex = this.hitTest(e.clientX, e.clientY);
             if (hitIndex !== -1) {
-                // Do NOT mutate locally to avoid double-delete when our own WS message arrives
+                this.existingShapes.splice(hitIndex, 1);
+                this.clearCanvas();
                 this.socket.send(JSON.stringify({
                     type: "chat",
                     message: JSON.stringify({ action: "delete", index: hitIndex }),

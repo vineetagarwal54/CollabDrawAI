@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -Command "pnpm dev"
+npm run dev

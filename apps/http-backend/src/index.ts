@@ -1,6 +1,8 @@
+import "dotenv/config";
 import express from "express";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from '@repo/backend-common/config';
+import { JWT_SECRET } from "@repo/backend-common/config";
 import { middleware } from "./middleware";
 import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
 import { prismaClient } from "@repo/db/client";
@@ -8,79 +10,85 @@ import cors from "cors";
 
 const app = express();
 app.use(express.json());
-app.use(cors())
+app.use(cors());
+
+const BCRYPT_SALT_ROUNDS = 10;
 
 app.post("/signup", async (req, res) => {
-
     const parsedData = CreateUserSchema.safeParse(req.body);
     if (!parsedData.success) {
-        console.log(parsedData.error);
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
-        })
+        });
         return;
     }
     try {
+        const hashedPassword = await bcrypt.hash(parsedData.data.password, BCRYPT_SALT_ROUNDS);
         const user = await prismaClient.user.create({
             data: {
-                email: parsedData.data?.username,
-                // TODO: Hash the pw
-                password: parsedData.data.password,
+                email: parsedData.data.username,
+                password: hashedPassword,
                 name: parsedData.data.name
             }
-        })
+        });
         res.json({
             userId: user.id
-        })
-    } catch(e) {
+        });
+    } catch (e) {
         res.status(411).json({
             message: "User already exists with this username"
-        })
+        });
     }
-})
+});
 
 app.post("/signin", async (req, res) => {
     const parsedData = SigninSchema.safeParse(req.body);
     if (!parsedData.success) {
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
-        })
+        });
         return;
     }
 
-    // TODO: Compare the hashed pws here
     const user = await prismaClient.user.findFirst({
         where: {
-            email: parsedData.data.username,
-            password: parsedData.data.password
+            email: parsedData.data.username
         }
-    })
+    });
 
     if (!user) {
         res.status(403).json({
             message: "Not authorized"
-        })
+        });
+        return;
+    }
+
+    const passwordMatches = await bcrypt.compare(parsedData.data.password, user.password);
+    if (!passwordMatches) {
+        res.status(403).json({
+            message: "Not authorized"
+        });
         return;
     }
 
     const token = jwt.sign({
-        userId: user?.id
+        userId: user.id
     }, JWT_SECRET);
 
     res.json({
         token
-    })
-})
+    });
+});
 
 app.post("/room", middleware, async (req, res) => {
     const parsedData = CreateRoomSchema.safeParse(req.body);
     if (!parsedData.success) {
-        res.json({
+        res.status(400).json({
             message: "Incorrect inputs"
-        })
+        });
         return;
     }
-    // @ts-ignore: TODO: Fix this
+    // @ts-ignore: set by middleware
     const userId = req.userId;
 
     try {
@@ -89,66 +97,52 @@ app.post("/room", middleware, async (req, res) => {
                 slug: parsedData.data.name,
                 adminId: userId
             }
-        })
+        });
 
         res.json({
             roomId: room.id
-        })
-    } catch(e) {
+        });
+    } catch (e) {
         res.status(411).json({
             message: "Room already exists with this name"
-        })
+        });
     }
-})
+});
 
 app.get("/chats/:roomId", async (req, res) => {
     try {
-        const roomIdParam = req.params.roomId;
-        const roomIdNum = Number(roomIdParam);
-        if (!roomIdParam || Number.isNaN(roomIdNum)) {
+        const roomIdNum = Number(req.params.roomId);
+        if (Number.isNaN(roomIdNum)) {
             res.status(400).json({ message: "Invalid room id", messages: [] });
             return;
         }
         const messages = await prismaClient.chat.findMany({
-            where: {
-                roomId: roomIdNum
-            },
-            orderBy: {
-                id: "desc"
-            },
+            where: { roomId: roomIdNum },
+            orderBy: { id: "desc" },
             take: 1000
         });
 
-        res.json({
-            messages
-        })
-    } catch(e) {
+        res.json({ messages });
+    } catch (e) {
         console.log(e);
-        res.status(500).json({
-            messages: []
-        })
+        res.status(500).json({ messages: [] });
     }
-    
-})
+});
 
 app.get("/room/:slug", async (req, res) => {
     const slug = req.params.slug;
     const room = await prismaClient.room.findFirst({
-        where: {
-            slug
-        }
+        where: { slug }
     });
 
-    res.json({
-        room
-    })
-})
+    res.json({ room });
+});
 
 app.get("/room/id/:id", async (req, res) => {
     try {
         const id = Number(req.params.id);
         if (Number.isNaN(id)) {
-            res.status(400).json({ message: "Invalid room id" })
+            res.status(400).json({ message: "Invalid room id" });
             return;
         }
         const room = await prismaClient.room.findFirst({
@@ -162,8 +156,9 @@ app.get("/room/id/:id", async (req, res) => {
     } catch (e) {
         res.status(500).json({ message: "Something went wrong" });
     }
-})
+});
 
-app.listen(3003, () => {
-    console.log("HTTP Backend server running on port 3003");
+const PORT = Number(process.env.PORT) || 3001;
+app.listen(PORT, () => {
+    console.log(`HTTP backend running on port ${PORT}`);
 });
