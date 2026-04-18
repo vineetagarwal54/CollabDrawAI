@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Eraser, Pencil, RectangleHorizontal, Palette, Settings, Users, Home, Save } from "lucide-react";
+import { Circle, Eraser, Hand, Pencil, RectangleHorizontal, Palette, Users, Home, Plus, Minus, Maximize2 } from "lucide-react";
 import { Game } from "@/draw/Game";
 import Link from "next/link";
 
-export type Tool = "circle" | "rect" | "pencil" | "erase";
+export type Tool = "circle" | "rect" | "pencil" | "erase" | "hand";
 
 export function Canvas({
     roomId,
@@ -23,6 +23,7 @@ export function Canvas({
     const [dimensions, setDimensions] = useState({ width: 1200, height: 800 });
     const [userCount, setUserCount] = useState<number>(1);
     const [isConnected, setIsConnected] = useState<boolean>(false);
+    const [zoomPct, setZoomPct] = useState<number>(100);
 
     // Handle window resize and initial dimensions
     useEffect(() => {
@@ -109,6 +110,7 @@ export function Canvas({
     useEffect(() => {
         if (canvasRef.current) {
             const g = new Game(canvasRef.current, roomId, socket);
+            g.setCameraListener((cam) => setZoomPct(Math.round(cam.zoom * 100)));
             setGame(g);
 
             return () => {
@@ -119,17 +121,17 @@ export function Canvas({
 
     return (
         <div className="h-screen w-screen relative overflow-hidden bg-gray-50">
-            {/* Canvas */}
-            <canvas 
-                ref={canvasRef} 
-                width={dimensions.width} 
+            {/* Canvas (cursor is managed imperatively by Game to reflect hand/pan state) */}
+            <canvas
+                ref={canvasRef}
+                width={dimensions.width}
                 height={dimensions.height}
-                className="absolute inset-0 cursor-crosshair"
+                className="absolute inset-0"
             />
             
             {/* Top Toolbar */}
-            <Topbar 
-                setSelectedTool={setSelectedTool} 
+            <Topbar
+                setSelectedTool={setSelectedTool}
                 selectedTool={selectedTool}
                 pencilWidth={pencilWidth}
                 setPencilWidth={setPencilWidth}
@@ -142,6 +144,10 @@ export function Canvas({
                 roomId={roomId}
                 userCount={userCount}
                 isConnected={isConnected}
+                zoomPct={zoomPct}
+                onZoomIn={() => game?.zoomBy(1.2)}
+                onZoomOut={() => game?.zoomBy(1 / 1.2)}
+                onResetView={() => game?.resetView()}
             />
             
             {/* Bottom Status Bar */}
@@ -158,6 +164,8 @@ export function Canvas({
                         <Users className="w-4 h-4" />
                         <span>{userCount} {userCount === 1 ? 'user' : 'users'}</span>
                     </div>
+                    <div className="w-px h-4 bg-gray-300"></div>
+                    <div className="text-xs text-gray-500">Scroll to zoom · Middle-drag or Hand tool to pan</div>
                 </div>
             </div>
         </div>
@@ -165,7 +173,7 @@ export function Canvas({
 }
 
 function Topbar({
-    selectedTool, 
+    selectedTool,
     setSelectedTool,
     pencilWidth,
     setPencilWidth,
@@ -177,7 +185,11 @@ function Topbar({
     setSelectedColor,
     roomId,
     userCount,
-    isConnected
+    isConnected,
+    zoomPct,
+    onZoomIn,
+    onZoomOut,
+    onResetView
 }: {
     selectedTool: Tool,
     setSelectedTool: (s: Tool) => void,
@@ -191,7 +203,11 @@ function Topbar({
     setSelectedColor: (color: string) => void,
     roomId: string,
     userCount: number,
-    isConnected: boolean
+    isConnected: boolean,
+    zoomPct: number,
+    onZoomIn: () => void,
+    onZoomOut: () => void,
+    onResetView: () => void
 }) {
     return (
         <div className="fixed top-4 left-4 right-4 z-50">
@@ -224,13 +240,19 @@ function Topbar({
                             icon={<Circle className="w-5 h-5" />}
                             tooltip="Circle"
                         />
-                        <IconButton 
-                            onClick={() => setSelectedTool("erase")} 
-                            activated={selectedTool === "erase"} 
+                        <IconButton
+                            onClick={() => setSelectedTool("erase")}
+                            activated={selectedTool === "erase"}
                             icon={<Eraser className="w-5 h-5" />}
                             tooltip="Eraser"
                         />
-                        
+                        <IconButton
+                            onClick={() => setSelectedTool("hand")}
+                            activated={selectedTool === "hand"}
+                            icon={<Hand className="w-5 h-5" />}
+                            tooltip="Pan (or hold middle mouse)"
+                        />
+
                         <div className="w-px h-8 bg-gray-200 mx-2"></div>
                         
                         {/* Color Picker */}
@@ -280,23 +302,39 @@ function Topbar({
                     </div>
                 </div>
 
-                {/* Right: Actions */}
+                {/* Right: Zoom + Actions */}
                 <div className="glass-effect bg-white/80 backdrop-blur-xl rounded-2xl p-3 shadow-xl border border-white/20">
                     <div className="flex items-center space-x-2">
-                        <IconButton 
-                            onClick={() => {}}
+                        <IconButton
+                            onClick={onZoomOut}
                             activated={false}
-                            icon={<Save className="w-5 h-5" />}
-                            tooltip="Save"
+                            icon={<Minus className="w-5 h-5" />}
+                            tooltip="Zoom out"
                         />
-                        <IconButton 
-                            onClick={() => {}}
+                        <button
+                            onClick={onResetView}
+                            className="text-sm font-medium text-gray-700 hover:text-indigo-600 px-2 min-w-[52px] text-center"
+                            title="Reset view"
+                        >
+                            {zoomPct}%
+                        </button>
+                        <IconButton
+                            onClick={onZoomIn}
                             activated={false}
-                            icon={<Settings className="w-5 h-5" />}
-                            tooltip="Settings"
+                            icon={<Plus className="w-5 h-5" />}
+                            tooltip="Zoom in"
                         />
+                        <IconButton
+                            onClick={onResetView}
+                            activated={false}
+                            icon={<Maximize2 className="w-5 h-5" />}
+                            tooltip="Reset view"
+                        />
+
+                        <div className="w-px h-8 bg-gray-200 mx-2"></div>
+
                         <Link href="/room">
-                            <IconButton 
+                            <IconButton
                                 onClick={() => {}}
                                 activated={false}
                                 icon={<Home className="w-5 h-5" />}
